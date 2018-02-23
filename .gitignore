@@ -1,0 +1,14 @@
+#output folder
+bin/
+classes/
+#gradle build folders
+.gradle/
+gradle/
+build/
+#Eclipse files
+.project
+.classpath
+.settings/
+#Intellij Idea files
+.idea/
+*.iml

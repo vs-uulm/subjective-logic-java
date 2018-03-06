@@ -2,6 +2,7 @@ package no.uio.subjective_logic.opinion;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 public class SubjectiveOpinion extends OpinionBase
@@ -460,68 +461,91 @@ public class SubjectiveOpinion extends OpinionBase
         return o;
     }
 
-    public static SubjectiveOpinion cumulativeCollectionFuse(Collection<? extends Opinion> opinions) throws OpinionArithmeticException
+
+    /**
+     * This method implements cumulative belief fusion (CBF) for multiple sources, as discussed in the corrected
+     * version of <a href="https://folk.uio.no/josang/papers/JWZ2017-FUSION.pdf">a FUSION 2017 paper by Jøsang et al.</a>
+     *
+     * As discussed in the book, cumulative fusion is useful in scenarios where opinions from multiple sources is combined, where each source is relying on independent (in the statistical sense) evidence.
+     * For more details, refer to Chapter 12 of the Subjective Logic book by Jøsang, specifically Section 12.3, which defines cumulative fusion.
+     *
+     * @param opinions a collection of opinions from different sources.
+     * @return a new SubjectiveOpinion that represents the fused evidence based on evidence accumulation.
+     * @throws OpinionArithmeticException
+     */
+    public static SubjectiveOpinion cumulativeCollectionFuse(Collection<Opinion> opinions) throws OpinionArithmeticException
     {
+        //handle edge cases
         if (opinions == null) {
             throw new NullPointerException();
         }
         if (opinions.isEmpty()) {
             throw new OpinionArithmeticException("Opinions must not be empty");
         }
+        if (opinions.size() == 1){
+            return new SubjectiveOpinion(opinions.iterator().next());
+        }
 
+        //fusion as defined by Jøsang
         double resultBelief, resultDisbelief, resultUncertainty, resultRelativeWeight, resultAtomicity = -1;
 
-        int c=0;
-        for (Opinion o : opinions)
-            if (((SubjectiveOpinion)o).getUncertainty() < OpinionBase.TOLERANCE)
-                c++;
+        Collection<SubjectiveOpinion> dogmatic = new ArrayList<>(opinions.size());
+        Iterator<Opinion> it = opinions.iterator();
+        boolean first = true;
+        while(it.hasNext()) {
+            SubjectiveOpinion o = (it.next()).toSubjectiveOpinion();
+            if(first) {
+                resultAtomicity = o.getAtomicity();
+                first = false;
+            }
+            //dogmatic iff uncertainty is zero.
+            if (o.getUncertainty() == 0)
+                dogmatic.add(o);
+        }
 
-        if(c<2){
-            //there is at most 1 dogmatic opinion -- case I; Eq16 of 10.23919/ICIF.2017.8009820
+        if(dogmatic.isEmpty()){
+            //there are no dogmatic opinions -- case I/Eq16 of 10.23919/ICIF.2017.8009820
             double productOfUncertainties = opinions.stream().mapToDouble(o -> ((SubjectiveOpinion) o).getUncertainty()).reduce(1.0D, (acc, u) -> acc * u);
 
             double numerator = 0.0D;
             double beliefAccumulator = 0.0D;
             double disbeliefAccumulator = 0.0D;
 
-            boolean first = true;
+            //this computes the top and bottom sums in Eq16, but ignores the - (N-1) * productOfUncertainties in the numerator (see below)
             for (Opinion o : opinions) {
-                if(first) { resultAtomicity = o.getAtomicity(); first=false; }
+                //productWithoutO = product of uncertainties without o's uncertainty
+                //this can be rewritten:
+                //prod {C_j != C } u^{C_j} = (u^C)^-1 * prod{C_j} u^{C_j} = 1/(u^C) * prod{C_j} u^{C_j}
+                //so instead of n-1 multiplications, we only need a division
+                double productWithoutO = productOfUncertainties / o.toSubjectiveOpinion().getUncertainty();
 
-                //prod = product of uncertainties without o's uncertainty
-                double prod = 1.0D;
-                for(Opinion other : opinions) {
-                    if (o != other) {
-                        prod = prod * ((SubjectiveOpinion)other).getUncertainty();
-                    }
-                }
-
-                numerator = numerator + prod;
-                beliefAccumulator = beliefAccumulator + prod * ((SubjectiveOpinion)o).getBelief();
-                disbeliefAccumulator = disbeliefAccumulator + prod * ((SubjectiveOpinion)o).getDisbelief();
+                beliefAccumulator = beliefAccumulator + productWithoutO * ((SubjectiveOpinion)o).getBelief();
+                disbeliefAccumulator = disbeliefAccumulator + productWithoutO * ((SubjectiveOpinion)o).getDisbelief();
+                numerator = numerator + productWithoutO;
             }
+
+            //this completes the numerator:
             numerator = numerator - (opinions.size() - 1) * productOfUncertainties;
 
             resultBelief = beliefAccumulator / numerator;
             resultDisbelief = disbeliefAccumulator / numerator;
             resultUncertainty = productOfUncertainties / numerator;
 
-            resultRelativeWeight=0;
+            resultRelativeWeight = 0;
         } else {
-            //only dogmatic opinions
-            double gamma = 1.0D/opinions.size();
-            double totalWeight = opinions.stream().mapToDouble( o -> ((SubjectiveOpinion)o).getRelativeWeight()).sum();
+            //at least 1 dogmatic opinion
+            //note: this computation assumes that the relative weight represents how many opinions have been fused into that opinion.
+            //for a normal multi-source fusion operation, this should be 1, in which case the gamma's in Eq17 are 1/N as noted in the text (i.e., all opinions count equally)
+            //however, this formulation also allows partial fusion beforehand, by "remembering" the amount of dogmatic (!) opinions in o.relativeWeight.
 
-            resultBelief = opinions.stream().mapToDouble(o-> ((SubjectiveOpinion)o).getRelativeWeight()/totalWeight * ((SubjectiveOpinion)o).getBelief()).sum();
-            resultDisbelief = opinions.stream().mapToDouble(o-> ((SubjectiveOpinion)o).getRelativeWeight()/totalWeight * ((SubjectiveOpinion)o).getDisbelief()).sum();
-            boolean first = true;
-            for(Opinion o : opinions)
-                if (first) {
-                    resultAtomicity = o.getAtomicity();
-                    first = false;
-                }
+            double totalWeight = dogmatic.stream().mapToDouble( o -> o.getRelativeWeight()).sum();
+
+            resultBelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * (o).getBelief()).sum();
+
+            resultDisbelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * (o).getDisbelief()).sum();
 
             resultUncertainty = 0.0D;
+
             resultRelativeWeight = totalWeight;
         }
 

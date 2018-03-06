@@ -1,5 +1,6 @@
 package de.uulm.vs.subjectivelogic.test;
 
+import no.uio.subjective_logic.opinion.Opinion;
 import no.uio.subjective_logic.opinion.OpinionBase;
 import no.uio.subjective_logic.opinion.SubjectiveOpinion;
 import org.apache.logging.log4j.LogManager;
@@ -187,7 +188,7 @@ public class TestCumulativeFusion {
         SubjectiveOpinion C1 = new SubjectiveOpinion(0.1, 0.3, 0.6, 0.5);
         SubjectiveOpinion C2 = new SubjectiveOpinion(0.4, 0.2, 0.4, 0.5);
         SubjectiveOpinion C3 = new SubjectiveOpinion(0.7, 0.1, 0.2, 0.5);
-        List<SubjectiveOpinion> opinionList = new ArrayList<>();
+        List<Opinion> opinionList = new ArrayList<>();
         opinionList.add(C1);
         opinionList.add(C2);
         opinionList.add(C3);
@@ -208,7 +209,7 @@ public class TestCumulativeFusion {
         SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soPD);
         SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soND);
         SubjectiveOpinion nonZero3 = new SubjectiveOpinion(soP);
-        List<SubjectiveOpinion> opinionList = new ArrayList<>();
+        List<Opinion> opinionList = new ArrayList<>();
         opinionList.add(nonZero1);
         opinionList.add(nonZero2);
         opinionList.add(nonZero3);
@@ -225,7 +226,7 @@ public class TestCumulativeFusion {
         SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soPD);
         SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soPD);
         SubjectiveOpinion nonZero3 = new SubjectiveOpinion(soND);
-        List<SubjectiveOpinion> opinionList = new ArrayList<>();
+        List<Opinion> opinionList = new ArrayList<>();
         opinionList.add(nonZero1);
         opinionList.add(nonZero2);
         opinionList.add(nonZero3);
@@ -303,11 +304,11 @@ public class TestCumulativeFusion {
     public void testCumulativeFusion() {
         l.info("Testing Cumulative Fusion");
 
-        List<SubjectiveOpinion> opinions = pastMisbehavior();
+        List<Opinion> opinions = pastMisbehavior();
         SubjectiveOpinion result = SubjectiveOpinion.cumulativeFuse(opinions);
         l.info(String.format("Cumulative fused opinion: %s", result.toString()));
 
-        List<SubjectiveOpinion> opinions2 = new ArrayList<>();
+        List<Opinion> opinions2 = new ArrayList<>();
         opinions2.add(new SubjectiveOpinion(soP));
         opinions2.add(new SubjectiveOpinion(soN));
         opinions2.add(new SubjectiveOpinion(soN));
@@ -315,7 +316,7 @@ public class TestCumulativeFusion {
         SubjectiveOpinion result2 = SubjectiveOpinion.cumulativeFuse(opinions2);
         l.info(String.format("Cumulative fused opinion: %s", result2.toString()));
 
-        List<SubjectiveOpinion> opinions3 = new ArrayList<>();
+        List<Opinion> opinions3 = new ArrayList<>();
         opinions3.add(new SubjectiveOpinion(soP));
         opinions3.add(new SubjectiveOpinion(soN));
         opinions3.add(new SubjectiveOpinion(soP));
@@ -324,7 +325,7 @@ public class TestCumulativeFusion {
 
         Assert.assertEquals(result2, result3);
 
-        List<SubjectiveOpinion> opinions4 = new ArrayList<>();
+        List<Opinion> opinions4 = new ArrayList<>();
         opinions4.add(new SubjectiveOpinion(soPD));
         opinions4.add(new SubjectiveOpinion(soND));
         opinions4.add(new SubjectiveOpinion(soP));
@@ -332,7 +333,7 @@ public class TestCumulativeFusion {
         opinions4.add(new SubjectiveOpinion(soND));
         SubjectiveOpinion result4 = SubjectiveOpinion.cumulativeFuse(opinions4);
 
-        List<SubjectiveOpinion> opinions5 = new ArrayList<>();
+        List<Opinion> opinions5 = new ArrayList<>();
         opinions5.add(new SubjectiveOpinion(soND));
         opinions5.add(new SubjectiveOpinion(soP));
         opinions5.add(new SubjectiveOpinion(soN));
@@ -395,8 +396,8 @@ public class TestCumulativeFusion {
 
     }
 
-    private List<SubjectiveOpinion> pastMisbehavior() {
-        List<SubjectiveOpinion> opinions = new ArrayList<>();
+    private List<Opinion> pastMisbehavior() {
+        List<Opinion> opinions = new ArrayList<>();
         for (int i = 0; i < 2; i++) {
             opinions.add(new SubjectiveOpinion(soP));
         }

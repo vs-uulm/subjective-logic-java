@@ -1,0 +1,39 @@
+apply plugin: 'java'
+
+version = '1.0'
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+buildDir = 'bin'
+
+sourceSets {
+    main {
+        java.srcDirs = ['src']
+        /* At the moment the only resource is the log4j2.xml file. */
+        resources.srcDirs = ['src']
+        resources.exclude '**/*.java'
+    }
+    test { java.srcDirs = ['test'] }
+}
+test {
+    testLogging {
+        events "failed"
+        info.events = ["failed", "skipped"]
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.7'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.7'
+    testCompile 'junit:junit:4.12'
+}
+
+//ensure that certain types of warnings are included
+//see https://stackoverflow.com/a/25681073
+compileJava {
+    options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+}

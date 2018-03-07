@@ -224,11 +224,11 @@ public class TestCumulativeFusion extends TestFusionSetup {
     public void testCumulativeFusion() {
         l.info("Testing Cumulative Fusion");
 
-        List<Opinion> opinions = pastMisbehavior();
+        List<SubjectiveOpinion> opinions = pastMisbehavior();
         SubjectiveOpinion result = SubjectiveOpinion.cumulativeFuse(opinions);
         l.info(String.format("Cumulative fused opinion: %s", result.toString()));
 
-        List<Opinion> opinions2 = new ArrayList<>();
+        List<SubjectiveOpinion> opinions2 = new ArrayList<>();
         opinions2.add(new SubjectiveOpinion(soP));
         opinions2.add(new SubjectiveOpinion(soN));
         opinions2.add(new SubjectiveOpinion(soN));
@@ -236,7 +236,7 @@ public class TestCumulativeFusion extends TestFusionSetup {
         SubjectiveOpinion result2 = SubjectiveOpinion.cumulativeFuse(opinions2);
         l.info(String.format("Cumulative fused opinion: %s", result2.toString()));
 
-        List<Opinion> opinions3 = new ArrayList<>();
+        List<SubjectiveOpinion> opinions3 = new ArrayList<>();
         opinions3.add(new SubjectiveOpinion(soP));
         opinions3.add(new SubjectiveOpinion(soN));
         opinions3.add(new SubjectiveOpinion(soP));
@@ -245,7 +245,7 @@ public class TestCumulativeFusion extends TestFusionSetup {
 
         Assert.assertEquals(result2, result3);
 
-        List<Opinion> opinions4 = new ArrayList<>();
+        List<SubjectiveOpinion> opinions4 = new ArrayList<>();
         opinions4.add(new SubjectiveOpinion(soPD));
         opinions4.add(new SubjectiveOpinion(soND));
         opinions4.add(new SubjectiveOpinion(soP));
@@ -253,7 +253,7 @@ public class TestCumulativeFusion extends TestFusionSetup {
         opinions4.add(new SubjectiveOpinion(soND));
         SubjectiveOpinion result4 = SubjectiveOpinion.cumulativeFuse(opinions4);
 
-        List<Opinion> opinions5 = new ArrayList<>();
+        List<SubjectiveOpinion> opinions5 = new ArrayList<>();
         opinions5.add(new SubjectiveOpinion(soND));
         opinions5.add(new SubjectiveOpinion(soP));
         opinions5.add(new SubjectiveOpinion(soN));
@@ -269,12 +269,4 @@ public class TestCumulativeFusion extends TestFusionSetup {
         Assert.assertEquals(result5, realRes5);
     }
 
-    private List<Opinion> pastMisbehavior() {
-        List<Opinion> opinions = new ArrayList<>();
-        for (int i = 0; i < 2; i++) {
-            opinions.add(new SubjectiveOpinion(soP));
-        }
-        opinions.add(new SubjectiveOpinion(soNN));
-        return opinions;
-    }
 }

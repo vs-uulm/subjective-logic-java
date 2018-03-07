@@ -1,9 +1,6 @@
 package no.uio.subjective_logic.opinion;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class SubjectiveOpinion extends OpinionBase
 {
@@ -243,8 +240,17 @@ public class SubjectiveOpinion extends OpinionBase
 
         return new double[]{compromiseBelief, compromiseDisbelief, compromiseUncertainty};
     }
-    //see Section 12.6 of the Subjective Logic book: 10.1007/978-3-319-42337-1_12
-    public static SubjectiveOpinion ccCollectionFusion(Collection<SubjectiveOpinion> opinions) throws OpinionArithmeticException
+
+    /**
+     * This method implements consensus & compromise fusion (CCF) for multiple sources, as discussed in a FUSION 2018 paper by van der Heijden et al. that is currently under review.
+     *
+     * For more details, refer to Chapter 12 of the Subjective Logic book by Jøsang, specifically Section 12.6, which defines CC fusion for the case of two sources.
+     *
+     * @param opinions a collection of opinions from different sources.
+     * @return a new SubjectiveOpinion that represents the fused evidence.
+     * @throws OpinionArithmeticException
+     */
+    public static SubjectiveOpinion ccCollectionFuse(Collection<SubjectiveOpinion> opinions) throws OpinionArithmeticException
     {
         if(opinions.contains(null) || opinions.size() < 2)
             throw new NullPointerException("Cannot fuse null opinions, or only one opinion was passed");
@@ -260,39 +266,196 @@ public class SubjectiveOpinion extends OpinionBase
             }
         }
 
-        //consensus
+        //Step 1: consensus phase
         final double consensusBelief = opinions.stream().mapToDouble(o -> o.getBelief()).min().getAsDouble();
         final double consensusDisbelief = opinions.stream().mapToDouble(o -> o.getDisbelief()).min().getAsDouble();
-        final double consensusMass = consensusBelief + consensusDisbelief;
 
-        //note: residue belief must be at least zero, by the definition of belief mass (see chapter 2), although this is not explicitly stated in equation 12.31
+        final double consensusMass = consensusBelief + consensusDisbelief;
 
         List<Double> residueBeliefs = new ArrayList<>(opinions.size());
         List<Double> residueDisbeliefs = new ArrayList<>(opinions.size());
-        List<Double> residueUncertainties = new ArrayList<>(opinions.size());
+        List<Double> uncertainties = new ArrayList<>(opinions.size());
         for (SubjectiveOpinion so : opinions) {
+            //note: this max should not be necessary..
             residueBeliefs.add(Math.max(so.getBelief()-consensusBelief,0));
             residueDisbeliefs.add(Math.max(so.getDisbelief()-consensusDisbelief,0));
-            residueUncertainties.add(so.getUncertainty());
+            uncertainties.add(so.getUncertainty());
         }
 
-        double[] X = new double[]{residueBeliefs.get(0), residueDisbeliefs.get(0), residueUncertainties.get(0)};
-        for (int i = 1; i < residueBeliefs.size(); i++) {
-            double[] Y = new double[]{residueBeliefs.get(i), residueDisbeliefs.get(i), residueUncertainties.get(i)};
-            X = ccFusion_compromise(X, Y);
-        }
-        double compromiseBelief = X[0];
-        double compromiseDisbelief = X[1];
-        double compromiseUncertainty = X[2];
+        //Step 2: Compromise phase
 
-        double preliminaryUncertainty = opinions.stream().map(o -> o.getUncertainty()).reduce(1D, (acc, u) -> acc * u);
+        double productOfUncertainties = opinions.stream().mapToDouble(o -> o.getUncertainty()).reduce(1.0D, (acc, u) -> acc * u);
+
+        double compromiseBeliefAccumulator = 0;
+        double compromiseDisbeliefAccumulator = 0;
+        double compromiseXAccumulator = 0; //this is what will later become uncertainty
+
+        //this computation consists of 4 sub-sums that will be added independently.
+        for (int i=0; i<opinions.size(); i++) {
+            double bResI = residueBeliefs.get(i);
+            double dResI = residueDisbeliefs.get(i);
+            double uI = uncertainties.get(i);
+            double uWithoutI = productOfUncertainties / uI;
+
+            //sub-sum 1:
+            compromiseBeliefAccumulator = compromiseBeliefAccumulator + bResI * uWithoutI;
+            compromiseDisbeliefAccumulator = compromiseDisbeliefAccumulator + dResI * uWithoutI;
+            //note: compromiseXAccumulator is unchanged, since b^{ResI}_X() of the entire domain is 0
+        }
+        //sub-sums 2,3,4 are all related to different permutations of possible values
+        for(List<Domain> permutation : tabulateOptions(opinions.size())){
+            Domain intersection = permutation.stream().reduce(Domain.DOMAIN, (acc, p) -> acc.intersect(p));
+            Domain union = permutation.stream().reduce(Domain.NIL, (acc, p) -> acc.union(p));
+
+            //sub-sum 2: intersection of elements in permutation is x
+            if(intersection.equals(Domain.TRUE)) {
+                // --> add to belief
+                double prod = 1;
+                if(permutation.contains(Domain.DOMAIN))
+                    prod = 0;
+                else
+                    for (int j=0; j<permutation.size();j++)
+                        switch (permutation.get(j)){
+                            case DOMAIN:
+                                prod = 0; // multiplication by 0
+                                break;
+                            case TRUE:
+                                prod = prod * residueBeliefs.get(j) * 1;
+                                break;
+                        }
+                compromiseBeliefAccumulator = compromiseBeliefAccumulator + prod;
+            } else if (intersection.equals(Domain.FALSE)) {
+                // --> add to disbelief
+                double prod = 1;
+                if(permutation.contains(Domain.DOMAIN))
+                    prod = 0;
+                else
+                    for (int j=0; j<permutation.size();j++)
+                        switch (permutation.get(j)){
+                            case DOMAIN:
+                                prod = 0; // multiplication by 0
+                                break;
+                            case FALSE:
+                                prod = prod * residueDisbeliefs.get(j) * 1;
+                                break;
+                        }
+                compromiseDisbeliefAccumulator = compromiseDisbeliefAccumulator + prod;
+            }
+
+            switch (union){
+                case DOMAIN:
+                    if(!intersection.equals(Domain.NIL)) {
+                        //sub-sum 3: union of elements in permutation is x, and intersection of elements in permutation is not NIL
+
+                        //Note: this is always zero for binary domains, as explained by the following:
+                        //double prod = 1;
+                        //for (int j=0; j<permutation.size(); j++) {
+                        //    switch (permutation.get(j)) {
+                        //        case NIL:
+                        //        case DOMAIN:
+                        //            prod = 0; //because residue belief over NIL/DOMAIN is zero here
+                        //            break;
+                        //        case TRUE:
+                        //        case FALSE:
+                        //            prod = 0; //because 1-a(y|x) is zero here, since a(y|x)=1 when x=y, and this must occur, since a(x|!x) occurring implies the intersection is NIL
+                        //            break;
+                        //    }
+                        //}
+
+                    }
+                    else {
+                        //sub-sum 4: union of elements in permutation is x, and intersection of elements in permutation is NIL
+                        double prod = 1;
+                        for (int j=0; j<permutation.size(); j++) {
+                            switch (permutation.get(j)) {
+                                case NIL:
+                                case DOMAIN:
+                                    prod = 0; //because residue belief over NIL/DOMAIN is zero here
+                                    break;
+                                case TRUE:
+                                    prod = prod * residueBeliefs.get(j);
+                                    break;
+                                case FALSE:
+                                    prod = prod * residueDisbeliefs.get(j);
+                                    break;
+                            }
+                        }
+                        compromiseXAccumulator = compromiseXAccumulator + prod;
+                    }
+                    break;
+                case NIL:
+                    //union of NIL means we have nothing to add
+                    //sub-sum 3: union of elements in permutation is x, and intersection of elements in permutation is not NIL
+                    //sub-sum 4: union of elements in permutation is x, and intersection of elements in permutation is NIL
+                    break;
+                case TRUE:
+                    //sub-sum 3: this is always zero for TRUE and FALSE, since 1-a(y_i|y_j)=0 in binary domains, where the relative base rate is either 1 if the union is x
+
+                    //sub-sum 4: union of elements in permutation is x, and intersection of elements in permutation is NIL
+                    if(intersection.equals(Domain.NIL)){
+                        //union is true, intersection is nil --> compute the product
+                        double prod = 1;
+                        for (int j=0; j<permutation.size(); j++) {
+                            switch (permutation.get(j)) { //other cases will not occur
+                                case TRUE:
+                                    prod = prod * residueBeliefs.get(j);
+                                    break;
+                                case FALSE:
+                                    prod = prod * residueDisbeliefs.get(j);
+                                    break;
+                                case NIL:
+                                    prod = 0;
+                                    break;
+                                default:
+                                    throw new RuntimeException();
+                            }
+                        }
+                        compromiseBeliefAccumulator = compromiseBeliefAccumulator + prod;
+                    }
+                    break;
+                case FALSE:
+                    //sub-sum 3: this is always zero for TRUE and FALSE, since 1-a(y_i|y_j)=0 in binary domains, where the relative base rate is either 1 if the union is x
+                    //sub-sum 4: union of elements in permutation is x, and intersection of elements in permutation is NIL
+                    if(intersection.equals(Domain.NIL)){
+                        //union is true, intersection is nil --> compute the product
+                        double prod = 1;
+                        for (int j=0; j<permutation.size(); j++) {
+                            switch (permutation.get(j)) { //other cases will not occur
+                                case TRUE:
+                                    prod = prod * residueBeliefs.get(j);
+                                    break;
+                                case FALSE:
+                                    prod = prod * residueDisbeliefs.get(j);
+                                    break;
+                                case NIL:
+                                    prod = 0;
+                                    break;
+                                default:
+                                    throw new RuntimeException();
+                            }
+                        }
+                        compromiseDisbeliefAccumulator= compromiseDisbeliefAccumulator + prod;
+                    }
+                    break;
+                default:
+                    break;
+
+            }
+        }
+
+        double compromiseBelief = compromiseBeliefAccumulator;
+        double compromiseDisbelief = compromiseDisbeliefAccumulator;
+        double compromiseUncertainty = compromiseXAccumulator;
+
+        double preliminaryUncertainty = productOfUncertainties;
         double compromiseMass = compromiseBelief + compromiseDisbelief + compromiseUncertainty;
 
+        //Step 3: Normalization phase
         double normalizationFactor = (1-consensusMass-preliminaryUncertainty)/(compromiseMass);
 
         double fusedUncertainty = preliminaryUncertainty + normalizationFactor* compromiseUncertainty;
+        //compromiseUncertainty = 0; --> but this variable is never used again anyway.
 
-        //merger
         double fusedBelief = consensusBelief + normalizationFactor * compromiseBelief;
         double fusedDisbelief = consensusDisbelief + normalizationFactor * compromiseDisbelief;
 
@@ -300,6 +463,98 @@ public class SubjectiveOpinion extends OpinionBase
         res.checkConsistency(true);
         return res;
     }
+
+    public enum Domain {
+        NIL, TRUE, FALSE, DOMAIN;
+
+        public Domain intersect(Domain d){
+            switch(this){
+                case NIL:
+                    return NIL;
+                case TRUE:
+                    switch (d){
+                        case NIL:
+                        case FALSE:
+                            return NIL;
+                        case TRUE:
+                        case DOMAIN:
+                            return TRUE;
+                        default:
+                            throw new RuntimeException("unidentified domain");
+                    }
+                case FALSE:
+                    switch (d){
+                        case NIL:
+                        case TRUE:
+                            return NIL;
+                        case FALSE:
+                        case DOMAIN:
+                            return FALSE;
+                        default:
+                            throw new RuntimeException("unidentified domain");
+                    }
+                case DOMAIN:
+                    return d;
+                default:
+                    throw new RuntimeException("unidentified domain");
+            }
+        }
+
+        public Domain union(Domain d){
+            switch (this) {
+                case DOMAIN:
+                    return DOMAIN;
+                case TRUE:
+                    switch (d){
+                        case TRUE:
+                        case NIL:
+                            return TRUE;
+                        case FALSE:
+                        case DOMAIN:
+                            return DOMAIN;
+                        default:
+                            throw new RuntimeException("unidentified domain");
+                    }
+                case FALSE:
+                    switch (d){
+                        case FALSE:
+                        case NIL:
+                            return FALSE;
+                        case TRUE:
+                        case DOMAIN:
+                            return DOMAIN;
+                        default:
+                            throw new RuntimeException("unidentified domain");
+                    }
+                case NIL:
+                    return d;
+                default:
+                    throw new RuntimeException("unidentified domain");
+            }
+        }
+    }
+
+    private static Set<List<Domain>> tabulateOptions(int size) {
+        if (size == 1) {
+            Set<List<Domain>> result = new HashSet<List<Domain>>();
+            for(Domain item : Domain.values()){
+                List l = new ArrayList<Domain>();
+                l.add(item);
+                result.add(l);
+            }
+            return result;
+        }
+        Set<List<Domain>> result = new HashSet();
+        for (List<Domain> tuple : tabulateOptions(size - 1)) {
+            for (Domain d : Domain.values()) {
+                List newList = new ArrayList(tuple);
+                newList.add(d);
+                result.add(newList);
+            }
+        }
+        return result;
+    }
+
     //see Section 12.6 of the Subjective Logic book: 10.1007/978-3-319-42337-1_12
     private static SubjectiveOpinion ccFusion(SubjectiveOpinion x, SubjectiveOpinion y) throws OpinionArithmeticException
     {
@@ -366,6 +621,7 @@ public class SubjectiveOpinion extends OpinionBase
      * @param y Opinion of source B
      * @return WBF fused opinion
      * @throws OpinionArithmeticException
+     * @deprecated
      */
     private static SubjectiveOpinion wbFusion(SubjectiveOpinion x, SubjectiveOpinion y) throws OpinionArithmeticException {
         if ((x == null) || (y == null)) {
@@ -473,7 +729,7 @@ public class SubjectiveOpinion extends OpinionBase
      * @return a new SubjectiveOpinion that represents the fused evidence based on evidence accumulation.
      * @throws OpinionArithmeticException
      */
-    public static SubjectiveOpinion cumulativeCollectionFuse(Collection<Opinion> opinions) throws OpinionArithmeticException
+    public static SubjectiveOpinion cumulativeCollectionFuse(Collection<SubjectiveOpinion> opinions) throws OpinionArithmeticException
     {
         //handle edge cases
         if (opinions == null) {
@@ -490,10 +746,10 @@ public class SubjectiveOpinion extends OpinionBase
         double resultBelief, resultDisbelief, resultUncertainty, resultRelativeWeight = 0, resultAtomicity = -1;
 
         Collection<SubjectiveOpinion> dogmatic = new ArrayList<>(opinions.size());
-        Iterator<Opinion> it = opinions.iterator();
+        Iterator<SubjectiveOpinion> it = opinions.iterator();
         boolean first = true;
         while(it.hasNext()) {
-            SubjectiveOpinion o = (it.next()).toSubjectiveOpinion();
+            SubjectiveOpinion o = it.next();
             if(first) {
                 resultAtomicity = o.getAtomicity();
                 first = false;
@@ -505,22 +761,22 @@ public class SubjectiveOpinion extends OpinionBase
 
         if(dogmatic.isEmpty()){
             //there are no dogmatic opinions -- case I/Eq16 of 10.23919/ICIF.2017.8009820
-            double productOfUncertainties = opinions.stream().mapToDouble(o -> ((SubjectiveOpinion) o).getUncertainty()).reduce(1.0D, (acc, u) -> acc * u);
+            double productOfUncertainties = opinions.stream().mapToDouble(o -> o.getUncertainty()).reduce(1.0D, (acc, u) -> acc * u);
 
             double numerator = 0.0D;
             double beliefAccumulator = 0.0D;
             double disbeliefAccumulator = 0.0D;
 
             //this computes the top and bottom sums in Eq16, but ignores the - (N-1) * productOfUncertainties in the numerator (see below)
-            for (Opinion o : opinions) {
+            for (SubjectiveOpinion o : opinions) {
                 //productWithoutO = product of uncertainties without o's uncertainty
                 //this can be rewritten:
                 //prod {C_j != C } u^{C_j} = (u^C)^-1 * prod{C_j} u^{C_j} = 1/(u^C) * prod{C_j} u^{C_j}
                 //so instead of n-1 multiplications, we only need a division
-                double productWithoutO = productOfUncertainties / o.toSubjectiveOpinion().getUncertainty();
+                double productWithoutO = productOfUncertainties / o.getUncertainty();
 
-                beliefAccumulator = beliefAccumulator + productWithoutO * ((SubjectiveOpinion)o).getBelief();
-                disbeliefAccumulator = disbeliefAccumulator + productWithoutO * ((SubjectiveOpinion)o).getDisbelief();
+                beliefAccumulator = beliefAccumulator + productWithoutO * o.getBelief();
+                disbeliefAccumulator = disbeliefAccumulator + productWithoutO * o.getDisbelief();
                 numerator = numerator + productWithoutO;
             }
 
@@ -565,7 +821,7 @@ public class SubjectiveOpinion extends OpinionBase
      * @return a new SubjectiveOpinion that represents the fused evidence based on confidence-weighted averaging of evidence.
      * @throws OpinionArithmeticException
      */
-    public static SubjectiveOpinion weightedCollectionFuse(Collection<Opinion> opinions) throws OpinionArithmeticException
+    public static SubjectiveOpinion weightedCollectionFuse(Collection<SubjectiveOpinion> opinions) throws OpinionArithmeticException
     {
         if (opinions == null) {
             throw new NullPointerException();
@@ -580,32 +836,32 @@ public class SubjectiveOpinion extends OpinionBase
         double resultBelief, resultDisbelief, resultUncertainty, resultRelativeWeight = 0, resultAtomicity;
 
         Collection<SubjectiveOpinion> dogmatic = new ArrayList<>(opinions.size());
-        Iterator<Opinion> it = opinions.iterator();
+        Iterator<SubjectiveOpinion> it = opinions.iterator();
         while(it.hasNext()) {
-            SubjectiveOpinion o = (it.next()).toSubjectiveOpinion();
+            SubjectiveOpinion o = it.next();
             //dogmatic iff uncertainty is zero.
             if (o.getUncertainty() == 0)
                 dogmatic.add(o);
         }
 
-        if (dogmatic.isEmpty() && opinions.stream().anyMatch(o -> ((SubjectiveOpinion) o).getCertainty() > 0)) {
+        if (dogmatic.isEmpty() && opinions.stream().anyMatch(o -> o.getCertainty() > 0)) {
             //Case 1: no dogmatic opinions, at least one non-vacuous opinion
-            double productOfUncertainties = opinions.stream().mapToDouble(o -> ((SubjectiveOpinion) o).getUncertainty()).reduce(1.0D, (acc, u) -> acc * u);
-            double sumOfUncertainties = opinions.stream().mapToDouble(o -> ((SubjectiveOpinion) o).getUncertainty()).sum();
+            double productOfUncertainties = opinions.stream().mapToDouble(o -> o.getUncertainty()).reduce(1.0D, (acc, u) -> acc * u);
+            double sumOfUncertainties = opinions.stream().mapToDouble(o -> o.getUncertainty()).sum();
 
             double numerator = 0.0D;
             double beliefAccumulator = 0.0D;
             double disbeliefAccumulator = 0.0D;
             double atomicityAccumulator = 0.0D;
 
-            for (Opinion o : opinions) {
+            for (SubjectiveOpinion o : opinions) {
                 //prod = product of uncertainties without o's uncertainty
-                double prod = productOfUncertainties / o.toSubjectiveOpinion().getUncertainty();
+                double prod = productOfUncertainties / o.getUncertainty();
 
                 //recall certainty = 1 - uncertainty
-                beliefAccumulator = beliefAccumulator + prod * ((SubjectiveOpinion)o).getBelief() * ((SubjectiveOpinion)o).getCertainty();
-                disbeliefAccumulator = disbeliefAccumulator + prod * ((SubjectiveOpinion)o).getDisbelief() * ((SubjectiveOpinion)o).getCertainty();
-                atomicityAccumulator = atomicityAccumulator + o.getAtomicity() * ((SubjectiveOpinion) o).getCertainty();
+                beliefAccumulator = beliefAccumulator + prod * o.getBelief() * o.getCertainty();
+                disbeliefAccumulator = disbeliefAccumulator + prod * o.getDisbelief() * o.getCertainty();
+                atomicityAccumulator = atomicityAccumulator + o.getAtomicity() * o.getCertainty();
                 numerator = numerator + prod;
             }
 
@@ -615,7 +871,7 @@ public class SubjectiveOpinion extends OpinionBase
             resultDisbelief = disbeliefAccumulator / numerator;
             resultUncertainty = (opinions.size() - sumOfUncertainties) * productOfUncertainties / numerator;
             resultAtomicity = atomicityAccumulator / (opinions.size() - sumOfUncertainties);
-        } else if (opinions.stream().allMatch(o -> ((SubjectiveOpinion) o).getUncertainty() == 1)) {
+        } else if (opinions.stream().allMatch(o -> o.getUncertainty() == 1)) {
             //Case 3 -- everything is vacuous
             resultBelief = 0;
             resultDisbelief = 0;
@@ -636,9 +892,9 @@ public class SubjectiveOpinion extends OpinionBase
             //Case 2 -- dogmatic opinions are involved
             double totalWeight = dogmatic.stream().mapToDouble( o -> o.getRelativeWeight()).sum();
 
-            resultBelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * (o).getBelief()).sum();
+            resultBelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * o.getBelief()).sum();
 
-            resultDisbelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * (o).getDisbelief()).sum();
+            resultDisbelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * o.getDisbelief()).sum();
 
             resultUncertainty = 0.0D;
 

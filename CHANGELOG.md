@@ -1,5 +1,9 @@
 # Changelog for Subjective Logic
 
+## Version 1.1.3
+
+This version adds consensus and compromise fusion as per the same FUSION 2018 paper that is under review.
+
 ## Version 1.1.2
 
 This version contains a corrected implementation of WBF for multiple sources.

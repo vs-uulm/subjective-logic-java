@@ -22,11 +22,11 @@ public class TestFusionSetup {
     protected SubjectiveOpinion soN;
     protected SubjectiveOpinion soNN;
     protected SubjectiveOpinion soND;
-    protected List<Opinion> soPDsoPDsoND;
-    protected List<Opinion> soPDsoNDsoND;
-    protected List<Opinion> soPDsoNDsoP;
-    protected List<Opinion> soPPsoPsoN;
-    protected List<Opinion> triSourceExample;
+    protected List<SubjectiveOpinion> soPDsoPDsoND;
+    protected List<SubjectiveOpinion> soPDsoNDsoND;
+    protected List<SubjectiveOpinion> soPDsoNDsoP;
+    protected List<SubjectiveOpinion> soPPsoPsoN;
+    protected List<SubjectiveOpinion> triSourceExample;
 
     private final double ATOMICITY = 0.5; // fixed baserate
     private final double NEUTRAL = 0.0;
@@ -143,4 +143,12 @@ public class TestFusionSetup {
 
     }
 
+    protected List<SubjectiveOpinion> pastMisbehavior() {
+        List<SubjectiveOpinion> opinions = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            opinions.add(new SubjectiveOpinion(soP));
+        }
+        opinions.add(new SubjectiveOpinion(soNN));
+        return opinions;
+    }
 }

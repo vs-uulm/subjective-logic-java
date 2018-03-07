@@ -487,7 +487,7 @@ public class SubjectiveOpinion extends OpinionBase
         }
 
         //fusion as defined by Jøsang
-        double resultBelief, resultDisbelief, resultUncertainty, resultRelativeWeight, resultAtomicity = -1;
+        double resultBelief, resultDisbelief, resultUncertainty, resultRelativeWeight = 0, resultAtomicity = -1;
 
         Collection<SubjectiveOpinion> dogmatic = new ArrayList<>(opinions.size());
         Iterator<Opinion> it = opinions.iterator();
@@ -555,7 +555,17 @@ public class SubjectiveOpinion extends OpinionBase
         return result;
     }
 
-    public static SubjectiveOpinion weightedCollectionFuse(Collection<? extends Opinion> opinions) throws OpinionArithmeticException
+    /**
+     * This method implements weighted belief fusion (WBF) for multiple sources, as discussed in a FUSION 2018 paper by van der Heijden et al. that is currently under review.
+     *
+     * As discussed in the book, WBF is intended to represent the confidence-weighted averaging of evidence.
+     * For more details, refer to Chapter 12 of the Subjective Logic book by Jøsang, specifically Section 12.5, which defines weighted belief fusion.
+     *
+     * @param opinions a collection of opinions from different sources.
+     * @return a new SubjectiveOpinion that represents the fused evidence based on confidence-weighted averaging of evidence.
+     * @throws OpinionArithmeticException
+     */
+    public static SubjectiveOpinion weightedCollectionFuse(Collection<Opinion> opinions) throws OpinionArithmeticException
     {
         if (opinions == null) {
             throw new NullPointerException();
@@ -563,65 +573,93 @@ public class SubjectiveOpinion extends OpinionBase
         if (opinions.isEmpty()) {
             throw new OpinionArithmeticException("Opinions must not be empty");
         }
+        if (opinions.size() == 1) {
+            return new SubjectiveOpinion(opinions.iterator().next());
+        }
 
-        double resultBelief, resultDisbelief, resultUncertainty, resultAtomicity = -1;
+        double resultBelief, resultDisbelief, resultUncertainty, resultRelativeWeight = 0, resultAtomicity;
 
-        if(opinions.stream().anyMatch(o -> ((SubjectiveOpinion) o).getUncertainty() > OpinionBase.TOLERANCE && ((SubjectiveOpinion) o).getUncertainty() != 1.0D-OpinionBase.TOLERANCE )) {
-            //Case 1: at least one non-dogmatic and at least one non-vacuous opinion
+        Collection<SubjectiveOpinion> dogmatic = new ArrayList<>(opinions.size());
+        Iterator<Opinion> it = opinions.iterator();
+        while(it.hasNext()) {
+            SubjectiveOpinion o = (it.next()).toSubjectiveOpinion();
+            //dogmatic iff uncertainty is zero.
+            if (o.getUncertainty() == 0)
+                dogmatic.add(o);
+        }
+
+        if (dogmatic.isEmpty() && opinions.stream().anyMatch(o -> ((SubjectiveOpinion) o).getCertainty() > 0)) {
+            //Case 1: no dogmatic opinions, at least one non-vacuous opinion
             double productOfUncertainties = opinions.stream().mapToDouble(o -> ((SubjectiveOpinion) o).getUncertainty()).reduce(1.0D, (acc, u) -> acc * u);
             double sumOfUncertainties = opinions.stream().mapToDouble(o -> ((SubjectiveOpinion) o).getUncertainty()).sum();
 
             double numerator = 0.0D;
             double beliefAccumulator = 0.0D;
             double disbeliefAccumulator = 0.0D;
+            double atomicityAccumulator = 0.0D;
 
-            boolean first = true;
             for (Opinion o : opinions) {
-                if(first) { resultAtomicity = o.getAtomicity(); first=false; }
-
                 //prod = product of uncertainties without o's uncertainty
-                double prod = 1.0D;
-                for(Opinion other : opinions) {
-                    if (o != other) {
-                        prod = prod * ((SubjectiveOpinion)other).getUncertainty();
-                    }
-                }
+                double prod = productOfUncertainties / o.toSubjectiveOpinion().getUncertainty();
 
-                beliefAccumulator = beliefAccumulator + prod * ((SubjectiveOpinion)o).getBelief() * ((SubjectiveOpinion)o).getUncertainty();
-                disbeliefAccumulator = disbeliefAccumulator + prod * ((SubjectiveOpinion)o).getDisbelief() * ((SubjectiveOpinion)o).getUncertainty();
+                //recall certainty = 1 - uncertainty
+                beliefAccumulator = beliefAccumulator + prod * ((SubjectiveOpinion)o).getBelief() * ((SubjectiveOpinion)o).getCertainty();
+                disbeliefAccumulator = disbeliefAccumulator + prod * ((SubjectiveOpinion)o).getDisbelief() * ((SubjectiveOpinion)o).getCertainty();
+                atomicityAccumulator = atomicityAccumulator + o.getAtomicity() * ((SubjectiveOpinion) o).getCertainty();
+                numerator = numerator + prod;
             }
-            numerator = sumOfUncertainties - opinions.size() * productOfUncertainties;
+
+            numerator = numerator - opinions.size() * productOfUncertainties;
 
             resultBelief = beliefAccumulator / numerator;
             resultDisbelief = disbeliefAccumulator / numerator;
-            resultUncertainty = productOfUncertainties / numerator;
-
-        } else if (opinions.stream().allMatch(o -> ((SubjectiveOpinion) o).getUncertainty() == 1)){
+            resultUncertainty = (opinions.size() - sumOfUncertainties) * productOfUncertainties / numerator;
+            resultAtomicity = atomicityAccumulator / (opinions.size() - sumOfUncertainties);
+        } else if (opinions.stream().allMatch(o -> ((SubjectiveOpinion) o).getUncertainty() == 1)) {
             //Case 3 -- everything is vacuous
             resultBelief = 0;
             resultDisbelief = 0;
             resultUncertainty = 1;
             boolean first = true;
-            for(Opinion o : opinions)
-                if (first) {
-                    resultAtomicity = o.getAtomicity();
-                    first = false;
-                }
-        } else {
-            double gamma = 1.0D/opinions.size();
-            resultBelief = opinions.stream().mapToDouble(o-> gamma * ((SubjectiveOpinion)o).getBelief()).sum();
-            resultDisbelief = opinions.stream().mapToDouble(o -> gamma * ((SubjectiveOpinion)o).getDisbelief()).sum();
 
-            resultUncertainty = 0;
+            //all confidences are zero, so the weight for each opinion is the same -> use a plain average for the resultAtomicity
+            resultAtomicity = 0;
+            for (Opinion o : opinions) {
+                if (first) {
+                    resultAtomicity = resultAtomicity + o.getAtomicity();
+                    first = false;
+                }
+            }
+            resultAtomicity = resultAtomicity / ((double)opinions.size());
+
+        } else {
+            //Case 2 -- dogmatic opinions are involved
+            double totalWeight = dogmatic.stream().mapToDouble( o -> o.getRelativeWeight()).sum();
+
+            resultBelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * (o).getBelief()).sum();
+
+            resultDisbelief = dogmatic.stream().mapToDouble(o-> o.getRelativeWeight()/totalWeight * (o).getDisbelief()).sum();
+
+            resultUncertainty = 0.0D;
+
+            resultRelativeWeight = totalWeight;
+
+            //note: the for loop below will always set resultAtomicity correctly.
+            resultAtomicity = -1;
             boolean first = true;
-            for(Opinion o : opinions)
+            for(Opinion o : opinions){
                 if (first) {
                     resultAtomicity = o.getAtomicity();
                     first = false;
                 }
+            }
         }
 
-        return new SubjectiveOpinion(resultBelief, resultDisbelief, resultUncertainty, resultAtomicity);
+        SubjectiveOpinion result = new SubjectiveOpinion(resultBelief, resultDisbelief, resultUncertainty, resultAtomicity);
+
+        result.setRelativeWeight(resultRelativeWeight);
+        result.lastOp = OpinionOperator.Fuse;
+        return result;
     }
 
     /**

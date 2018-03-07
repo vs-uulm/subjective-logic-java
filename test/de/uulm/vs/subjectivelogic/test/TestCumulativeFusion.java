@@ -12,49 +12,12 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TestCumulativeFusion {
+public class TestCumulativeFusion extends TestFusionSetup {
     private final Logger l = LogManager.getLogger(getClass());
-
-    private SubjectiveOpinion soVacuous;
-    private SubjectiveOpinion soNeutral;
-    private SubjectiveOpinion soP;
-    private SubjectiveOpinion soPP;
-    private SubjectiveOpinion soPD;
-    private SubjectiveOpinion soN;
-    private SubjectiveOpinion soNN;
-    private SubjectiveOpinion soND;
-
-    private final double ATOMICITY = 0.5; // fixed baserate
-    private final double NEUTRAL = 0.0;
-    private final double SLIGHTLY = 0.3;
-    private final double VERY = 0.7;
-    private final double DOGMATCIC = 1.0;
-
-
-    @Before
-    public void setUp() {
-        l.info("Setting up opinions...");
-        soVacuous = new SubjectiveOpinion(0.0, 0.0, 1.0, ATOMICITY);
-        soNeutral = new SubjectiveOpinion(SLIGHTLY, SLIGHTLY, 1 - 2 * SLIGHTLY, ATOMICITY);
-        soP = new SubjectiveOpinion(SLIGHTLY, 0, 1 - SLIGHTLY, ATOMICITY);
-        soPP = new SubjectiveOpinion(VERY, 0, 1 - VERY, ATOMICITY);
-        soN = new SubjectiveOpinion(0, SLIGHTLY, 1 - SLIGHTLY, ATOMICITY);
-        soNN = new SubjectiveOpinion(0, VERY, 1 - VERY, ATOMICITY);
-        soPD = new SubjectiveOpinion(1, true);
-        soND = new SubjectiveOpinion(0, true);
-        l.debug(String.format("Vacuous opinion: %s", soVacuous.toString()));
-        l.debug(String.format("Neutral opinion: %s", soNeutral.toString()));
-        l.debug(String.format("Slightly positive opinion: %s", soP.toString()));
-        l.debug(String.format("Very positive opinion: %s", soPP.toString()));
-        l.debug(String.format("Slightly negative opinion: %s", soN.toString()));
-        l.debug(String.format("Very negative opinion: %s", soNN.toString()));
-        l.debug(String.format("Dogmatic positive opinion: %s", soPD.toString()));
-        l.debug(String.format("Dogmatic negative opinion: %s", soND.toString()));
-    }
 
     @Test
     public void testCumulativeFusion_2_opinions() {
-        l.info("Testing SubjectiveLogic.cumulativeFuse(o)..");
+        l.info("Testing binary operator SubjectiveLogic.cumulativeFuse(o)");
 
         SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soP);
         SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soN);
@@ -156,65 +119,45 @@ public class TestCumulativeFusion {
     }
 
     @Test
-    public void testCumulativeFusion_N_opinions_nonDogmatic() {
-        l.info("Testing SubjectiveLogic.cumulativeFuse(o)..");
+    public void testCumulativeFusion_tri_associativity_nonDogmatic() {
+        l.info("Testing associativity of SubjectiveLogic.cumulativeFuse(o) for non-dogmatic inputs (tri-source)");
 
-        SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soPP);
-        SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soP);
-        SubjectiveOpinion nonZero3 = new SubjectiveOpinion(soN);
-        List<SubjectiveOpinion> opinionList = new ArrayList<>();
-        opinionList.add(nonZero1); opinionList.add(nonZero2); opinionList.add(nonZero3);
+        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeFuse(soPPsoPsoN);
 
-        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeFuse(opinionList);
-
-        SubjectiveOpinion seqFuse123 = nonZero1.cumulativeFuse(nonZero2).cumulativeFuse(nonZero3);
+        SubjectiveOpinion seqFuse123 = soPP.cumulativeFuse(soP).cumulativeFuse(soN);
         Assert.assertEquals(seqFuse123, batchFuse);
-        SubjectiveOpinion seqFuse132 = nonZero1.cumulativeFuse(nonZero3).cumulativeFuse(nonZero2);
+        SubjectiveOpinion seqFuse132 = soPP.cumulativeFuse(soN).cumulativeFuse(soP);
         Assert.assertEquals(seqFuse132, batchFuse);
-        SubjectiveOpinion seqFuse213 = nonZero2.cumulativeFuse(nonZero1).cumulativeFuse(nonZero3);
+        SubjectiveOpinion seqFuse213 = soP.cumulativeFuse(soPP).cumulativeFuse(soN);
         Assert.assertEquals(seqFuse213, batchFuse);
-        SubjectiveOpinion seqFuse231 = nonZero2.cumulativeFuse(nonZero3).cumulativeFuse(nonZero1);
+        SubjectiveOpinion seqFuse231 = soP.cumulativeFuse(soN).cumulativeFuse(soPP);
         Assert.assertEquals(seqFuse231, batchFuse);
-        SubjectiveOpinion seqFuse321 = nonZero3.cumulativeFuse(nonZero2).cumulativeFuse(nonZero1);
+        SubjectiveOpinion seqFuse321 = soN.cumulativeFuse(soP).cumulativeFuse(soPP);
         Assert.assertEquals(seqFuse321, batchFuse);
-        SubjectiveOpinion seqFuse312 = nonZero3.cumulativeFuse(nonZero1).cumulativeFuse(nonZero2);
+        SubjectiveOpinion seqFuse312 = soN.cumulativeFuse(soPP).cumulativeFuse(soP);
         Assert.assertEquals(seqFuse312, batchFuse);
     }
 
     @Test
     public void testCumulativeBatchFusion_nonDogmatic() {
-        l.info("Testing SubjectiveLogic.cumulativeCollectionFuse(o)..");
+        l.info("Testing correctness of SubjectiveLogic.cumulativeCollectionFuse(o) with example from FUSION 2017 paper..");
 
-        SubjectiveOpinion C1 = new SubjectiveOpinion(0.1, 0.3, 0.6, 0.5);
-        SubjectiveOpinion C2 = new SubjectiveOpinion(0.4, 0.2, 0.4, 0.5);
-        SubjectiveOpinion C3 = new SubjectiveOpinion(0.7, 0.1, 0.2, 0.5);
-        List<Opinion> opinionList = new ArrayList<>();
-        opinionList.add(C1);
-        opinionList.add(C2);
-        opinionList.add(C3);
+        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeCollectionFuse(triSourceExample);
 
-        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeCollectionFuse(opinionList);
-
+        //test that batch fusion is correct
         Assert.assertEquals(0.651, batchFuse.getBelief(), 0.001);
         Assert.assertEquals(0.209, batchFuse.getDisbelief(), 0.001);
         Assert.assertEquals(0.140, batchFuse.getUncertainty(), 0.001);
 
-        Assert.assertEquals(SubjectiveOpinion.cumulativeFuse(opinionList), batchFuse);
+        //associativity test
+        Assert.assertEquals(SubjectiveOpinion.cumulativeFuse(triSourceExample), batchFuse);
     }
 
     @Test
     public void testCumulativeBatchFusion_mixed() {
         l.info("Testing SubjectiveLogic.cumulativeCollectionFuse(o)..");
 
-        SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soPD);
-        SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soND);
-        SubjectiveOpinion nonZero3 = new SubjectiveOpinion(soP);
-        List<Opinion> opinionList = new ArrayList<>();
-        opinionList.add(nonZero1);
-        opinionList.add(nonZero2);
-        opinionList.add(nonZero3);
-
-        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeCollectionFuse(opinionList);
+        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeCollectionFuse(this.soPDsoNDsoP);
 
         Assert.assertTrue(batchFuse.isConsistent());
     }
@@ -223,81 +166,58 @@ public class TestCumulativeFusion {
     public void testCumulativeBatchFusion_dogmatic() {
         l.info("Testing SubjectiveLogic.cumulativeCollectionFuse(o)..");
 
-        SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soPD);
-        SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soPD);
-        SubjectiveOpinion nonZero3 = new SubjectiveOpinion(soND);
-        List<Opinion> opinionList = new ArrayList<>();
-        opinionList.add(nonZero1);
-        opinionList.add(nonZero2);
-        opinionList.add(nonZero3);
-
-        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeCollectionFuse(opinionList);
+        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeCollectionFuse(this.soPDsoPDsoND);
 
         Assert.assertTrue(batchFuse.isConsistent());
     }
 
     @Test
-    public void testCumulativeFusion_N_opinions_dogmatic() {
-        l.info("Testing SubjectiveLogic.cumulativeFuse(o)..");
+    public void testCumulativeFusion_tri_associative_dogmatic() {
+        l.info("Testing associativity of SubjectiveLogic.cumulativeFuse(o) for dogmatic inputs (tri-source)");
 
-        SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soPD);
-        SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soND);
-        SubjectiveOpinion nonZero3 = new SubjectiveOpinion(soND);
-        List<SubjectiveOpinion> opinionList = new ArrayList<>();
-        opinionList.add(nonZero1); opinionList.add(nonZero2); opinionList.add(nonZero3);
+        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeFuse(soPDsoNDsoND);
 
-        SubjectiveOpinion batchFuse = SubjectiveOpinion.cumulativeFuse(opinionList);
-
-        SubjectiveOpinion seqFuse123 = nonZero1.cumulativeFuse(nonZero2).cumulativeFuse(nonZero3);
+        SubjectiveOpinion seqFuse123 = soPD.cumulativeFuse(soND).cumulativeFuse(soND);
         Assert.assertEquals(seqFuse123, batchFuse);
-        SubjectiveOpinion seqFuse132 = nonZero1.cumulativeFuse(nonZero3).cumulativeFuse(nonZero2);
+        SubjectiveOpinion seqFuse132 = soPD.cumulativeFuse(soND).cumulativeFuse(soND);
         Assert.assertEquals(seqFuse132, batchFuse);
-        SubjectiveOpinion seqFuse213 = nonZero2.cumulativeFuse(nonZero1).cumulativeFuse(nonZero3);
+        SubjectiveOpinion seqFuse213 = soND.cumulativeFuse(soPD).cumulativeFuse(soND);
         Assert.assertEquals(seqFuse213, batchFuse);
-        SubjectiveOpinion seqFuse231 = nonZero2.cumulativeFuse(nonZero3).cumulativeFuse(nonZero1);
+        SubjectiveOpinion seqFuse231 = soND.cumulativeFuse(soND).cumulativeFuse(soPD);
         Assert.assertEquals(seqFuse231, batchFuse);
-        SubjectiveOpinion seqFuse312 = nonZero3.cumulativeFuse(nonZero1).cumulativeFuse(nonZero2);
+        SubjectiveOpinion seqFuse312 = soND.cumulativeFuse(soPD).cumulativeFuse(soND);
         Assert.assertEquals(seqFuse312, batchFuse);
-        SubjectiveOpinion seqFuse321 = nonZero3.cumulativeFuse(nonZero2).cumulativeFuse(nonZero1);
+        SubjectiveOpinion seqFuse321 = soND.cumulativeFuse(soND).cumulativeFuse(soPD);
         Assert.assertEquals(seqFuse321, batchFuse);
     }
 
     @Test
     public void testRelativeWeights() {
-        SubjectiveOpinion nondogmatic = new SubjectiveOpinion(soPP);
 
-        SubjectiveOpinion nonZero1 = new SubjectiveOpinion(soPD);
-        SubjectiveOpinion nonZero2 = new SubjectiveOpinion(soPD);
-        SubjectiveOpinion nonZero3 = new SubjectiveOpinion(soND);
-        List<SubjectiveOpinion> opinionList = new ArrayList<>();
-        opinionList.add(nonZero1);
-        opinionList.add(nonZero2);
-        opinionList.add(nonZero3);
+        SubjectiveOpinion intermediate = soPD.cumulativeFuse(soPD);
 
-        SubjectiveOpinion intermediate = nonZero1.cumulativeFuse(nonZero2);
+        Assert.assertEquals(intermediate.cumulativeFuse(soND),
+                soND.cumulativeFuse(intermediate));
 
-        Assert.assertEquals(intermediate.cumulativeFuse(nonZero3),
-                nonZero3.cumulativeFuse(intermediate));
-
-        SubjectiveOpinion final_opinion = intermediate.cumulativeFuse(nonZero3);
+        SubjectiveOpinion final_opinion = intermediate.cumulativeFuse(soND);
 
         //nondogmatic + dogmatic = dogmatic
-        Assert.assertEquals(nondogmatic.cumulativeFuse(nonZero1), nonZero1);
-        Assert.assertEquals(nondogmatic.cumulativeFuse(nonZero2), nonZero2);
-        Assert.assertEquals(nondogmatic.cumulativeFuse(nonZero3), nonZero3);
-        Assert.assertEquals(nondogmatic.cumulativeFuse(intermediate), intermediate);
-        Assert.assertEquals(nondogmatic.cumulativeFuse(final_opinion), final_opinion);
+        Assert.assertEquals(soPP.cumulativeFuse(soPD), soPD);
+        Assert.assertEquals(soPP.cumulativeFuse(soPD), soPD);
+        Assert.assertEquals(soPP.cumulativeFuse(soND), soND);
+        Assert.assertEquals(soPP.cumulativeFuse(intermediate), intermediate);
+        Assert.assertEquals(soPP.cumulativeFuse(final_opinion), final_opinion);
 
-        SubjectiveOpinion nondogmaticIntermediate = nondogmatic.cumulativeFuse(nonZero1);
+        SubjectiveOpinion nondogmaticIntermediate = soPP.cumulativeFuse(soPD);
 
         //(nondogmatic + dogmatic) + dogmatic = dogmatic + dogmatic
-        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(nonZero1), nonZero1);
-        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(nonZero2), nonZero1.cumulativeFuse(nonZero2));
+        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(soPD), soPD);
+        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(soPD), soPD.cumulativeFuse(soPD));
         Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(intermediate), intermediate);
 
         //broken: (cases where not all dogmatic opinions agree..)
-        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(nonZero3), nonZero1.cumulativeFuse(nonZero3));
-        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(final_opinion), final_opinion.cumulativeFuse(nonZero1));
+        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(soND), soPD.cumulativeFuse(soND));
+        Assert.assertEquals(nondogmaticIntermediate.cumulativeFuse(final_opinion), final_opinion.cumulativeFuse(soPD));
     }
 
     @Test
@@ -347,53 +267,6 @@ public class TestCumulativeFusion {
         Assert.assertEquals(result4, result5);
         Assert.assertEquals(result4, realRes4);
         Assert.assertEquals(result5, realRes5);
-    }
-
-    @Test
-    public void compareFusionOperators() {
-        SubjectiveOpinion o1, o2;
-
-        o1 = new SubjectiveOpinion(soP);
-        o2 = new SubjectiveOpinion(soN);
-        l.info("----- Slight belief and slight disbelief -----");
-        l.info(String.format("Fusing opinions    %s and %s", o1.toString(), o2.toString()));
-        l.info(String.format("Cumulative result: %s", o1.cumulativeFuse(o2).toString()));
-        l.info(String.format("WBF result:        %s", o1.wbFuse(o2).toString()));
-        l.info(String.format("CC result:         %s", o1.ccFuse(o2).toString()));
-
-
-        o1 = new SubjectiveOpinion(soPP);
-        o2 = new SubjectiveOpinion(soN);
-        l.info("----- High belief and slight disbelief -----");
-        l.info(String.format("Fusing opinions    %s and %s", o1.toString(), o2.toString()));
-        l.info(String.format("Cumulative result: %s", o1.cumulativeFuse(o2).toString()));
-        l.info(String.format("WBF result:        %s", o1.wbFuse(o2).toString()));
-        l.info(String.format("CC result:         %s", o1.ccFuse(o2).toString()));
-
-        l.info("----- High belief and slight belief -----");
-        o1 = new SubjectiveOpinion(soPP);
-        o2 = new SubjectiveOpinion(soP);
-        l.info(String.format("Fusing opinions    %s and %s", o1.toString(), o2.toString()));
-        l.info(String.format("Cumulative result: %s", o1.cumulativeFuse(o2).toString()));
-        l.info(String.format("WBF result:        %s", o1.wbFuse(o2).toString()));
-        l.info(String.format("CC result:         %s", o1.ccFuse(o2).toString()));
-
-        o1 = new SubjectiveOpinion(soPD);
-        o2 = new SubjectiveOpinion(soNN);
-        l.info("----- Dogmatic belief and high disbelief -----");
-        l.info(String.format("Fusing opinions    %s and %s", o1.toString(), o2.toString()));
-        l.info(String.format("Cumulative result: %s", o1.cumulativeFuse(o2).toString()));
-        l.info(String.format("WBF result:        %s", o1.wbFuse(o2).toString()));
-        l.info(String.format("CC result:         %s", o1.ccFuse(o2).toString()));
-
-        o1 = new SubjectiveOpinion(soPD);
-        o2 = new SubjectiveOpinion(soND);
-        l.info("----- Two contradicting dogmatic opinions -----");
-        l.info(String.format("Fusing opinions    %s and %s", o1.toString(), o2.toString()));
-        l.info(String.format("Cumulative result: %s", o1.cumulativeFuse(o2).toString()));
-        l.info(String.format("WBF result:        %s", o1.wbFuse(o2).toString()));
-        l.info(String.format("CC result:         %s", o1.ccFuse(o2).toString())); // TODO: this result does not seem right
-
     }
 
     private List<Opinion> pastMisbehavior() {

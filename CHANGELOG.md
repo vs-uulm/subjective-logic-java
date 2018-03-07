@@ -1,5 +1,12 @@
 # Changelog for Subjective Logic
 
+## Version 1.1.2
+
+This version contains a corrected implementation of WBF for multiple sources.
+It also splits up the tests, and adds tests for WBF.
+
+The implementation of multi-source WBF is based on a generalization that is currently under review at the FUSION 2018 conference.
+
 ## Version 1.1.1
 
 Updated the CBF implementation to be more efficient and closer to the corrected paper. Also adds some documentation.

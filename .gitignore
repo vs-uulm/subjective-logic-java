@@ -1,5 +1,6 @@
 #output folder
 bin/
+out/
 classes/
 #gradle build folders
 .gradle/
@@ -12,3 +13,5 @@ build/
 #Intellij Idea files
 .idea/
 *.iml
+#test output
+*.log

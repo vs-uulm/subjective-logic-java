@@ -1,5 +1,9 @@
 # Changelog for Subjective Logic
 
+## Version 1.1.3a
+
+This bugfix release deprecates and partially removes old, possibly unreliable code that was included in 1.1.3.
+
 ## Version 1.1.3
 
 This version adds consensus and compromise fusion as per the same FUSION 2018 paper that is under review.

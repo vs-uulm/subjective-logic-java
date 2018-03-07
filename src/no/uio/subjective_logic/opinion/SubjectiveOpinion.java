@@ -215,32 +215,6 @@ public class SubjectiveOpinion extends OpinionBase
         return o;
     }
 
-    private static double[] ccFusion_compromise(double[] resX, double[] resY){
-        double XResidueBelief = resX[0], XResidueDisbelief = resX[1], Xu = resX[2];
-        double YResidueBelief = resY[0], YResidueDisbelief = resY[1], Yu = resY[2];
-
-        //compromise
-        double compromiseBelief = XResidueBelief * Yu + YResidueBelief * Xu +
-                1*1*XResidueBelief*YResidueBelief + //first sum; y=z=x for x=true
-                0*0*XResidueBelief*YResidueBelief + //second sum; y=z=x for x=true
-                0; //third sum; x=true means that the intersection of y and z must be non-empty
-        double compromiseDisbelief = XResidueDisbelief * Yu + YResidueDisbelief * Xu +
-                1*1*XResidueDisbelief*YResidueDisbelief + //first sum; y=z=x for x=false
-                0*0*XResidueDisbelief*YResidueDisbelief + //second sum; y=z=x for x=false
-                0; //third sum; x=false means that the intersection of y and z must be non-empty
-
-        //this variable contains the belief mass for the entire domain, which is in this case
-        // {true, false}. For subjective opinions, belief({true,false})=0 by definition, however
-        // the compromise process introduces some belief to the entire domain. This is later used in
-        // the normalization process to compute the fused uncertainty, because belief over the entire
-        // domain is basically the same thing as uncertainty.
-        // residual belief mass over {T,F} is 0, so the computation using eq12.32 is a lot easier,
-        // since only the third sum is non-zero:
-        double compromiseUncertainty = XResidueBelief * YResidueDisbelief + YResidueBelief * XResidueDisbelief;
-
-        return new double[]{compromiseBelief, compromiseDisbelief, compromiseUncertainty};
-    }
-
     /**
      * This method implements consensus & compromise fusion (CCF) for multiple sources, as discussed in a FUSION 2018 paper by van der Heijden et al. that is currently under review.
      *
@@ -556,6 +530,14 @@ public class SubjectiveOpinion extends OpinionBase
     }
 
     //see Section 12.6 of the Subjective Logic book: 10.1007/978-3-319-42337-1_12
+
+    /**
+     * @deprecated
+     * @param x
+     * @param y
+     * @return
+     * @throws OpinionArithmeticException
+     */
     private static SubjectiveOpinion ccFusion(SubjectiveOpinion x, SubjectiveOpinion y) throws OpinionArithmeticException
     {
         if(x == null || y == null)
@@ -664,6 +646,13 @@ public class SubjectiveOpinion extends OpinionBase
         return res;
     }
 
+    /**
+     * @deprecated
+     * @param x
+     * @param y
+     * @return
+     * @throws OpinionArithmeticException
+     */
     private static SubjectiveOpinion cumulativeFusion(SubjectiveOpinion x, SubjectiveOpinion y) throws OpinionArithmeticException
     {
         if ((x == null) || (y == null)) {
@@ -1224,6 +1213,7 @@ public class SubjectiveOpinion extends OpinionBase
      * @param opinions Collection of opinions to be fused
      * @return Fused opinion
      * @throws OpinionArithmeticException
+     * @deprecated
      */
     public static SubjectiveOpinion ccFuse(Collection<? extends Opinion> opinions) throws OpinionArithmeticException
     {
@@ -1242,6 +1232,12 @@ public class SubjectiveOpinion extends OpinionBase
         return x;
     }
 
+    /**
+     * @deprecated
+     * @param opinions
+     * @return
+     * @throws OpinionArithmeticException
+     */
     public static SubjectiveOpinion cumulativeFuse(Collection<? extends Opinion> opinions) throws OpinionArithmeticException
     {
         if (opinions == null) {
@@ -2099,6 +2095,12 @@ public class SubjectiveOpinion extends OpinionBase
         return cumulativeFusion(copy1, copy2);
     }
 
+    /**
+     * @deprecated
+     * @param opinion
+     * @return
+     * @throws OpinionArithmeticException
+     */
     public final SubjectiveOpinion ccFuse(Opinion opinion)
             throws OpinionArithmeticException
     {
@@ -2108,6 +2110,12 @@ public class SubjectiveOpinion extends OpinionBase
         return ccFusion(new SubjectiveOpinion(this), new SubjectiveOpinion(opinion));
     }
 
+    /**
+     * @deprecated
+     * @param opinion
+     * @return
+     * @throws OpinionArithmeticException
+     */
     public final SubjectiveOpinion wbFuse(Opinion opinion)
             throws OpinionArithmeticException
     {

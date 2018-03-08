@@ -26,6 +26,9 @@ public class TestFusionSetup {
     protected List<SubjectiveOpinion> soPDsoNDsoND;
     protected List<SubjectiveOpinion> soPDsoNDsoP;
     protected List<SubjectiveOpinion> soPPsoPsoN;
+    protected SubjectiveOpinion C1;
+    protected SubjectiveOpinion C2;
+    protected SubjectiveOpinion C3;
     protected List<SubjectiveOpinion> triSourceExample;
 
     private final double ATOMICITY = 0.5; // fixed baserate
@@ -87,9 +90,9 @@ public class TestFusionSetup {
         this.soPPsoPsoN.add(nonZero2);
         this.soPPsoPsoN.add(nonZero3);
 
-        SubjectiveOpinion C1 = new SubjectiveOpinion(0.1, 0.3, 0.6, 0.5);
-        SubjectiveOpinion C2 = new SubjectiveOpinion(0.4, 0.2, 0.4, 0.5);
-        SubjectiveOpinion C3 = new SubjectiveOpinion(0.7, 0.1, 0.2, 0.5);
+        C1 = new SubjectiveOpinion(0.1, 0.3, 0.6, 0.5);
+        C2 = new SubjectiveOpinion(0.4, 0.2, 0.4, 0.5);
+        C3 = new SubjectiveOpinion(0.7, 0.1, 0.2, 0.5);
         triSourceExample = new ArrayList<>();
         triSourceExample.add(C1);
         triSourceExample.add(C2);

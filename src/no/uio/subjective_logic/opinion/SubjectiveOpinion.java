@@ -529,6 +529,64 @@ public class SubjectiveOpinion extends OpinionBase
         return result;
     }
 
+    public SubjectiveOpinion minimum(SubjectiveOpinion other) {
+        if (this.getExpectation() < other.getExpectation())
+            return this;
+        else
+            return other;
+    }
+
+    /**
+     * This method implements MIN fusion. This takes the minimum, i.e., returns the opinion with the lowest probability of being true, meaning the lowest projected probability P(X=x).
+     *
+     *
+     *
+     * @param opinions a collection of opinions from different sources.
+     * @return a new SubjectiveOpinion that represents the fused evidence.
+     * @throws OpinionArithmeticException
+     */
+    public static SubjectiveOpinion minimumCollectionFuse(Collection<SubjectiveOpinion> opinions) throws OpinionArithmeticException {
+        if (opinions.contains(null) || opinions.size() < 2)
+            throw new NullPointerException("Cannot fuse null opinions, or only one opinion was passed");
+
+        SubjectiveOpinion min = null;
+        for (SubjectiveOpinion so : opinions) {
+            if (min == null)
+                min = so;
+            min = min.minimum(so);
+        }
+
+        return min;
+    }
+
+    /**
+     * This method implements MAJORITY fusion. This returns a new dogmatic opinion that specifies the decision of the majority.
+     * If the majority is tied, a vacuous opinion is returned.
+     * It is assumed that the base rates of all opinions are equal.
+     * For this operation, opinions that are undecided (expectation equals base rate) are ignored.
+     *
+     * @param opinions a collection of opinions from different sources.
+     * @return a new SubjectiveOpinion that represents the fused evidence.
+     * @throws OpinionArithmeticException
+     */
+    public static SubjectiveOpinion majorityCollectionFuse(Collection<SubjectiveOpinion> opinions) throws OpinionArithmeticException {
+        if (opinions.contains(null) || opinions.size() < 2)
+            throw new NullPointerException("Cannot fuse null opinions, or only one opinion was passed");
+        int pos=0,neg=0;
+        for (SubjectiveOpinion so: opinions) {
+            if(so.getExpectation() < so.getAtomicity())
+                neg++;
+            else if (so.getExpectation() > so.getAtomicity())
+                pos++;
+        }
+        if(pos>neg)
+            return new SubjectiveOpinion(1,0,0,0.5);
+        else if(pos<neg)
+            return new SubjectiveOpinion(0,1,0,0.5);
+        else
+            return new SubjectiveOpinion(0,0,1,0.5);
+    }
+
     //see Section 12.6 of the Subjective Logic book: 10.1007/978-3-319-42337-1_12
 
     /**

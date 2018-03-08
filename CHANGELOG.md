@@ -1,5 +1,12 @@
 # Changelog for Subjective Logic
 
+## Version 1.1.4
+
+This version introduces a minimum and a majority fusion. These operations basically represent decision making based on multiple evidence sources.
+In the minimum case, the projection of all opinions is used to decide the output (i.e., lowest expected probability).
+In the majority case, the output is the majority decision as a dogmatic or vacuous opinion.
+Simple tests are included with this release that show the desired output.
+
 ## Version 1.1.3a
 
 This bugfix release deprecates and partially removes old, possibly unreliable code that was included in 1.1.3.

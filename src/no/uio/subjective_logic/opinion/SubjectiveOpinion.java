@@ -1949,6 +1949,27 @@ public class SubjectiveOpinion extends OpinionBase
         }
     }
 
+    /**
+     * Returns an uncertainty-maximized opinion with the given projected probability, with an assumed baseRate.
+     * @param projectedProbability
+     * @param
+     * @return
+     */
+    public static SubjectiveOpinion fromProjection(double projectedProbability, double baseRate){
+        SubjectiveOpinion so = new SubjectiveOpinion(projectedProbability, 1-projectedProbability, 0, baseRate);
+        maximizeUncertainty(so);
+        return so;
+    }
+
+    /**
+     * Returns an uncertainty-maximized opinion with the given projected probability: base rate is assumed to be 0.5.
+     * @param projectedProbability
+     * @return
+     */
+    public static SubjectiveOpinion fromProjection(double projectedProbability) {
+        return fromProjection(projectedProbability, 0.5);
+    }
+
     public final SubjectiveOpinion abduce(Conditionals conditionals, double baseRateX) throws OpinionArithmeticException
     {
         if (conditionals == null) {

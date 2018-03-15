@@ -1372,26 +1372,23 @@ public class SubjectiveOpinion extends OpinionBase
         return new Conditionals(xTy, xFy);
     }
 
-    private static void maximizeUncertainty(SubjectiveOpinion x)
+    private void maximizeUncertainty()
     {
-        if (x == null) {
-            throw new NullPointerException();
-        }
-        synchronized (x)
+        synchronized (this)
         {
-            x.setDependants();
+            this.setDependants();
             double u;
             double d;
             double a;
             double b;
-            if (x.getExpectation() <= x.getAtomicity())
+            if (this.getExpectation() <= this.getAtomicity())
             {
                 b = 0.0D;
-                a = x.getAtomicity();
-                if (x.getAtomicity() > 0.0D)
+                a = this.getAtomicity();
+                if (this.getAtomicity() > 0.0D)
                 {
-                    d = OpinionBase.adjust(1.0D - x.getUncertainty() - x.getBelief() / x.getAtomicity());
-                    u = OpinionBase.adjust(x.getUncertainty() + x.getBelief() / x.getAtomicity());
+                    d = OpinionBase.adjust(1.0D - this.getUncertainty() - this.getBelief() / this.getAtomicity());
+                    u = OpinionBase.adjust(this.getUncertainty() + this.getBelief() / this.getAtomicity());
                 }
                 else
                 {
@@ -1402,11 +1399,11 @@ public class SubjectiveOpinion extends OpinionBase
             else
             {
                 d = 0.0D;
-                a = x.getAtomicity();
-                if (x.getAtomicity() < 1.0D)
+                a = this.getAtomicity();
+                if (this.getAtomicity() < 1.0D)
                 {
-                    b = OpinionBase.adjust(1.0D - x.getUncertainty() - x.getDisbelief() / (1.0D - x.getAtomicity()));
-                    u = OpinionBase.adjust(x.getUncertainty() + x.getDisbelief() / (1.0D - x.getAtomicity()));
+                    b = OpinionBase.adjust(1.0D - this.getUncertainty() - this.getDisbelief() / (1.0D - this.getAtomicity()));
+                    u = OpinionBase.adjust(this.getUncertainty() + this.getDisbelief() / (1.0D - this.getAtomicity()));
                 }
                 else
                 {
@@ -1415,12 +1412,12 @@ public class SubjectiveOpinion extends OpinionBase
                 }
             }
 
-            x.belief = b;
-            x.disbelief = d;
-            x.uncertainty = u;
-            x.atomicity = a;
+            this.belief = b;
+            this.disbelief = d;
+            this.uncertainty = u;
+            this.atomicity = a;
 
-            x.checkConsistency(true);
+            this.checkConsistency(true);
         }
     }
 
@@ -1957,7 +1954,7 @@ public class SubjectiveOpinion extends OpinionBase
      */
     public static SubjectiveOpinion fromProjection(double projectedProbability, double baseRate){
         SubjectiveOpinion so = new SubjectiveOpinion(projectedProbability, 1-projectedProbability, 0, baseRate);
-        maximizeUncertainty(so);
+        so.maximizeUncertainty();
         return so;
     }
 
@@ -2324,7 +2321,7 @@ public class SubjectiveOpinion extends OpinionBase
     public SubjectiveOpinion uncertainOpinion()
     {
         SubjectiveOpinion o = new SubjectiveOpinion(this);
-        maximizeUncertainty(o);
+        o.maximizeUncertainty();
         return o;
     }
 

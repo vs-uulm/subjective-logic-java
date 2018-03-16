@@ -10,6 +10,8 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.Assert.fail;
+
 public class TestSubjectiveOpinion {
     private final Logger l = LogManager.getLogger(getClass());
 
@@ -50,5 +52,31 @@ public class TestSubjectiveOpinion {
         uMax = believe.uncertainOpinion();
 
         Assert.assertEquals(uMax, SubjectiveOpinion.fromProjection(0.7));
+
+        //test exceptional behavior
+        try {
+            SubjectiveOpinion fail = SubjectiveOpinion.fromProjection(-0.1);
+            fail("Created opinion from invalid projection: " + fail);
+        }catch (IllegalArgumentException e){
+            l.info("Correct exception with value -0.1");
+        }
+        try {
+            SubjectiveOpinion fail = SubjectiveOpinion.fromProjection(1.1);
+            fail("Created opinion from invalid projection: " + fail);
+        }catch (IllegalArgumentException e){
+            l.info("Correct exception with value 1.1");
+        }
+        try {
+            SubjectiveOpinion fail = SubjectiveOpinion.fromProjection(0.1, -0.1);
+            fail("Created opinion from projection with invalid base rate: " + fail);
+        }catch (IllegalArgumentException e){
+            l.info("Correct exception with base rate -0.1");
+        }
+        try {
+            SubjectiveOpinion fail = SubjectiveOpinion.fromProjection(0.1, 1.1);
+            fail("Created opinion from projection with invalid base rate: " + fail);
+        }catch (IllegalArgumentException e){
+            l.info("Correct exception with base rate " + 1.1);
+        }
     }
 }

@@ -1953,6 +1953,10 @@ public class SubjectiveOpinion extends OpinionBase
      * @return
      */
     public static SubjectiveOpinion fromProjection(double projectedProbability, double baseRate){
+        if(projectedProbability < 0 || projectedProbability > 1)
+            throw new IllegalArgumentException("Invalid projected probability: " + projectedProbability);
+        if(baseRate < 0 || baseRate > 1)
+            throw new IllegalArgumentException("Invalid base rate: " + baseRate);
         SubjectiveOpinion so = new SubjectiveOpinion(projectedProbability, 1-projectedProbability, 0, baseRate);
         so.maximizeUncertainty();
         return so;
@@ -1964,6 +1968,8 @@ public class SubjectiveOpinion extends OpinionBase
      * @return
      */
     public static SubjectiveOpinion fromProjection(double projectedProbability) {
+        if(projectedProbability < 0 || projectedProbability > 1)
+            throw new IllegalArgumentException("Invalid projected probability: " + projectedProbability);
         return fromProjection(projectedProbability, 0.5);
     }
 

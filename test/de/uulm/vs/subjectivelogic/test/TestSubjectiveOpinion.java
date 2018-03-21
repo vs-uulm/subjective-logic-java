@@ -79,4 +79,35 @@ public class TestSubjectiveOpinion {
             l.info("Correct exception with base rate " + 1.1);
         }
     }
+
+    @Test
+    public void testEWA(){
+        l.info("Testing exponential weighted average operation.");
+
+        SubjectiveOpinion uncertain = new SubjectiveOpinion(0.5, 0.5, 0, 0.5);
+        SubjectiveOpinion believe = new SubjectiveOpinion(0.7, 0.3, 0, 0.5);
+        SubjectiveOpinion distrust = new SubjectiveOpinion(0.3, 0.7, 0, 0.5);
+
+        SubjectiveOpinion result;
+
+        result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, believe, 1);
+        Assert.assertEquals(result.getExpectation(), believe.getExpectation(), SubjectiveOpinion.TOLERANCE);
+        result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, believe, 0);
+        Assert.assertEquals(result.getExpectation(), uncertain.getExpectation(), SubjectiveOpinion.TOLERANCE);
+
+        result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, believe, 0.5);
+        Assert.assertEquals(result.getExpectation(), 0.5*uncertain.getExpectation() + 0.5*believe.getExpectation(), SubjectiveOpinion.TOLERANCE);
+        result = SubjectiveOpinion.exponentialWeightedAveraging(result, believe, 0.5);
+        Assert.assertEquals(result.getExpectation(), 0.5*(0.5*uncertain.getExpectation() + 0.5*believe.getExpectation()) + 0.5*believe.getExpectation(), SubjectiveOpinion.TOLERANCE);
+
+        result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, distrust, 0.5);
+        Assert.assertEquals(result.getExpectation(), 0.5*uncertain.getExpectation() + 0.5*distrust.getExpectation(), SubjectiveOpinion.TOLERANCE);
+        result = SubjectiveOpinion.exponentialWeightedAveraging(result, distrust, 0.5);
+        Assert.assertEquals(result.getExpectation(), 0.5*(0.5*uncertain.getExpectation() + 0.5*distrust.getExpectation()) + 0.5*distrust.getExpectation(), SubjectiveOpinion.TOLERANCE);
+
+        result = SubjectiveOpinion.exponentialWeightedAveraging(believe, distrust, 0.5);
+        Assert.assertEquals(result.getExpectation(), 0.5*believe.getExpectation() + 0.5*distrust.getExpectation(), SubjectiveOpinion.TOLERANCE);
+        result = SubjectiveOpinion.exponentialWeightedAveraging(result, distrust, 0.5);
+        Assert.assertEquals(result.getExpectation(), 0.5*(0.5*believe.getExpectation() + 0.5*distrust.getExpectation()) + 0.5*distrust.getExpectation(), SubjectiveOpinion.TOLERANCE);
+    }
 }

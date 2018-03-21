@@ -89,11 +89,23 @@ public class TestSubjectiveOpinion {
         SubjectiveOpinion distrust = new SubjectiveOpinion(0.3, 0.7, 0, 0.5);
 
         SubjectiveOpinion result;
+        SubjectiveOpinion result2;
 
         result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, believe, 1);
         Assert.assertEquals(result.getExpectation(), believe.getExpectation(), SubjectiveOpinion.TOLERANCE);
         result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, believe, 0);
         Assert.assertEquals(result.getExpectation(), uncertain.getExpectation(), SubjectiveOpinion.TOLERANCE);
+
+        result = SubjectiveOpinion.exponentialWeightedAveraging(believe, believe, 0.5);
+        Assert.assertEquals(result.getExpectation(), believe.getExpectation(), SubjectiveOpinion.TOLERANCE);
+
+        result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, believe, 0.5);
+        result2 = SubjectiveOpinion.exponentialWeightedAveraging(result, believe, 0.5);
+        Assert.assertTrue(result.getExpectation() < result2.getExpectation());
+
+        result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, distrust, 0.5);
+        result2 = SubjectiveOpinion.exponentialWeightedAveraging(result, distrust, 0.5);
+        Assert.assertTrue(result.getExpectation() > result2.getExpectation());
 
         result = SubjectiveOpinion.exponentialWeightedAveraging(uncertain, believe, 0.5);
         Assert.assertEquals(result.getExpectation(), 0.5*uncertain.getExpectation() + 0.5*believe.getExpectation(), SubjectiveOpinion.TOLERANCE);
